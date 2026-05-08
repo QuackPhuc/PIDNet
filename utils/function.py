@@ -19,7 +19,7 @@ from utils.utils import adjust_learning_rate
 
 
 def train(config, epoch, num_epoch, epoch_iters, base_lr,
-          num_iters, trainloader, optimizer, model, writer_dict):
+          num_iters, trainloader, optimizer, model, writer_dict, tracker=None):
     # Training
     model.train()
 
@@ -71,10 +71,20 @@ def train(config, epoch, num_epoch, epoch_iters, base_lr,
                       ave_acc.average(), avg_sem_loss.average(), avg_bce_loss.average(),ave_loss.average()-avg_sem_loss.average()-avg_bce_loss.average())
             logging.info(msg)
 
+            if tracker:
+                global_iter = cur_iters + i_iter
+                tracker.log_metrics({
+                    "train/loss": ave_loss.average(),
+                    "train/acc": ave_acc.average(),
+                    "train/sem_loss": avg_sem_loss.average(),
+                    "train/bce_loss": avg_bce_loss.average(),
+                    "train/lr": lr,
+                }, step=global_iter)
+
     writer.add_scalar('train_loss', ave_loss.average(), global_steps)
     writer_dict['train_global_steps'] = global_steps + 1
 
-def validate(config, testloader, model, writer_dict):
+def validate(config, testloader, model, writer_dict, tracker=None):
     model.eval()
     ave_loss = AverageMeter()
     nums = config.MODEL.NUM_OUTPUTS
@@ -125,6 +135,13 @@ def validate(config, testloader, model, writer_dict):
     writer.add_scalar('valid_loss', ave_loss.average(), global_steps)
     writer.add_scalar('valid_mIoU', mean_IoU, global_steps)
     writer_dict['valid_global_steps'] = global_steps + 1
+
+    if tracker:
+        metrics = {"valid/loss": ave_loss.average(), "valid/mIoU": mean_IoU}
+        for i, iou in enumerate(IoU_array):
+            metrics[f"valid/IoU_class_{i}"] = float(iou)
+        tracker.log_metrics(metrics, step=global_steps)
+
     return ave_loss.average(), mean_IoU, IoU_array
 
 

@@ -67,6 +67,24 @@ def main():
         'valid_global_steps': 0,
     }
 
+    tracker = None
+    if config.MLFLOW.ENABLED:
+        from utils.mlflow_tracker import MLflowTracker
+        tracker = MLflowTracker(
+            tracking_uri=config.MLFLOW.TRACKING_URI,
+            experiment_name=config.MLFLOW.EXPERIMENT_NAME,
+        )
+        cfg_name = os.path.basename(args.cfg).split('.')[0]
+        tracker.start_run() # Let MLflow generate a random name
+        tracker.log_params_from_config(config)
+        tracker.log_tag('config', cfg_name)
+        data_version = MLflowTracker.read_data_version(
+            config.MLFLOW.DATA_VERSION_FILE,
+            prefixes=list(config.MLFLOW.DATA_VERSION_PREFIXES)
+        )
+        if data_version:
+            tracker.log_tag('data_version', data_version)
+
     # cudnn related setting
     cudnn.benchmark = config.CUDNN.BENCHMARK
     cudnn.deterministic = config.CUDNN.DETERMINISTIC
@@ -179,11 +197,11 @@ def main():
 
         train(config, epoch, config.TRAIN.END_EPOCH, 
                   epoch_iters, config.TRAIN.LR, num_iters,
-                  trainloader, optimizer, model, writer_dict)
+                  trainloader, optimizer, model, writer_dict, tracker)
 
         if flag_rm == 1 or (epoch % 5 == 0 and epoch < real_end - 100) or (epoch >= real_end - 100):
             valid_loss, mean_IoU, IoU_array = validate(config, 
-                        testloader, model, writer_dict)
+                        testloader, model, writer_dict, tracker)
         if flag_rm == 1:
             flag_rm = 0
 
@@ -213,6 +231,12 @@ def main():
     end = timeit.default_timer()
     logger.info('Hours: %d' % np.int((end-start)/3600))
     logger.info('Done')
+
+    if tracker:
+        tracker.log_artifact(os.path.join(final_output_dir, 'best.pt'))
+        tracker.log_artifact(os.path.join(final_output_dir, 'final_state.pt'))
+        tracker.log_artifact(args.cfg)
+        tracker.end_run()
 
 if __name__ == '__main__':
     main()

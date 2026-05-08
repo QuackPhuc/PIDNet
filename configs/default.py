@@ -87,6 +87,14 @@ _C.TEST.MULTI_SCALE = False
 
 _C.TEST.OUTPUT_INDEX = -1
 
+# MLflow
+_C.MLFLOW = CN()
+_C.MLFLOW.ENABLED = False
+_C.MLFLOW.TRACKING_URI = ""
+_C.MLFLOW.EXPERIMENT_NAME = ""
+_C.MLFLOW.DATA_VERSION_FILE = ""
+_C.MLFLOW.DATA_VERSION_PREFIXES = []
+
 
 def update_config(cfg, args):
     cfg.defrost()
