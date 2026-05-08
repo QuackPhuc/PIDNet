@@ -127,6 +127,10 @@ def validate(config, testloader, model, writer_dict, tracker=None):
         tp = np.diag(confusion_matrix[..., i])
         IoU_array = (tp / np.maximum(1.0, pos + res - tp))
         mean_IoU = IoU_array.mean()
+        precision_array = (tp / np.maximum(1.0, res))
+        mean_precision = precision_array.mean()
+        recall_array = (tp / np.maximum(1.0, pos))
+        mean_recall = recall_array.mean()
         
         logging.info('{} {} {}'.format(i, IoU_array, mean_IoU))
 
@@ -137,9 +141,16 @@ def validate(config, testloader, model, writer_dict, tracker=None):
     writer_dict['valid_global_steps'] = global_steps + 1
 
     if tracker:
-        metrics = {"valid/loss": ave_loss.average(), "valid/mIoU": mean_IoU}
-        for i, iou in enumerate(IoU_array):
+        metrics = {
+            "valid/loss": ave_loss.average(), 
+            "valid/mIoU": mean_IoU,
+            "valid/mPrecision": mean_precision,
+            "valid/mRecall": mean_recall
+        }
+        for i, (iou, prec, rec) in enumerate(zip(IoU_array, precision_array, recall_array)):
             metrics[f"valid/IoU_class_{i}"] = float(iou)
+            metrics[f"valid/Precision_class_{i}"] = float(prec)
+            metrics[f"valid/Recall_class_{i}"] = float(rec)
         tracker.log_metrics(metrics, step=global_steps)
 
     return ave_loss.average(), mean_IoU, IoU_array
